@@ -1,0 +1,201 @@
+---
+title: "Data Visualization - Mini-Project 2"
+author: "Tobias Syring - tsyring0082@floridapoly.edu"
+output: 
+  html_document:
+    keep_md: true
+    toc: true
+    toc_float: true
+---
+
+# Data Visualization Project 02
+
+_revised version of mini-project 02 goes here_
+
+
+```{r, include=FALSE,warning=FALSE, message=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggplot2)
+library(sf)
+library(broom)
+library(here)
+library(scales)
+library(plotly)
+```
+
+```{r}
+getwd()
+```
+
+```{r}
+#Downloads were made manually and then put into the data folder
+# Florida Lakes for Spatial Visualization
+lakes <- st_read(here("data", "Florida_Lakes", "Florida_Lakes.shp"))
+```
+
+```{r}
+
+# FIFA 18 player stats for interactive Visualization
+fifa <- read_csv(here("data", "fifa18.csv"))
+head(fifa)
+```
+```{r}
+#Houses in West Roxbury
+houses <- read_csv(here("data", "WestRoxbury.csv"))
+
+```
+# My Approach
+
+## The Ideas
+
+### 1. Interactive Visualization – Player Stats in FIFA 18
+Since I’m a big football enthusiast and have played the FIFA video game series for many years, I know that the “pace” stat is crucial for a player to be considered usable or even “meta”, which means top-tier, in the game. For better understanding, in the online mode of the FIFA Games (called Fifa Ultimate Team), each user builds their own squad with players they can link together based on chemistry (League, Club, Nationality). Each player has different stats. With this visualization, I want to explore how speed compares among the highest-rated players and gain interactive insights into how many of them are potentially impactful in gameplay.
+
+### 2. Spatial Visualization – Lakes in Florida
+My first idea is to visualize the largest lakes in Florida, focusing on Polk County. I wanted to see which lakes have the largest surface area, especially since I recently went on a trail run along Lake Hancock. That made me curious how it compares to others in the county and sparked my interest in exploring the lake topography.
+
+### 3. Model-Based Visualization – West Roxbury Housing Prices
+For the final visualization, I wanted to explore how certain home characteristics might influence housing prices. Something that would be interesting to investigate is how the size of a home, affects its  value.
+
+# Data Visualizations
+
+## 1. FIFA 18 Ratings - Interactive Plot
+### Data Preparation
+
+```{r}
+#Prepare the dataset for 30 best rated players with relevant pace attributes annd player information
+fifa_top30 <- fifa %>%
+  arrange(desc(overall)) %>%
+  slice(1:30) %>%
+  select(name, nationality, club, age, overall, sprint_speed, acceleration, stamina)
+fifa_top30
+```
+### Visualization
+```{r interactive_plot}
+p <- ggplot(fifa_top30, aes(x = sprint_speed, y = overall,
+                            color = nationality,
+                            text = paste("Name:", name,
+                              "<br>Club:", club,
+                              "<br>Nation:", nationality,
+                              "<br>Sprint Speed:", sprint_speed,
+                              "<br>Acceleration:", acceleration,
+                              "<br>Stamina:", stamina,
+                              "<br>Overall:", overall))) +
+  geom_point(size = 2, alpha = 0.75) +
+  labs(title = "Top 30 FIFA 18 Players: Sprint Speed vs Overall Rating",
+    subtitle = "Colored by nationality | Hover for detailed attributes",
+    caption="Data: EA Sports",
+    x = "Sprint Speed",
+    y = "Overall Rating",
+    color = "Nationality") +
+  theme_minimal()
+
+ggplotly(p, tooltip = "text")
+
+```
+
+## 2. Florida Lakes - Spatial Visualization
+
+### Data Preparation
+```{r}
+# Prepare: issues convert it into metric system, instead of coordinate reference system with degrees 
+lakes_m <- st_transform(lakes, crs = 5070)
+
+# bring the areas to m²
+lakes_m$area_m2 <- st_area(lakes_m)
+
+#filter Polk County select top 10 largest lakes
+lakes_polk_top10 <- lakes_m %>%
+  filter(COUNTY == "POLK") %>%
+  slice_max(SHAPEAREA, n = 10)
+
+lakes_polk_top10
+```
+
+### Visualization
+```{r lakes_plot}
+ggplot(lakes_polk_top10) +
+  geom_sf(aes(fill = as.numeric(area_m2)), color = "black", alpha =0.9, size=0.2)+
+  scale_fill_viridis_c(option = "inferno",
+    name = "Lake Area in m²",
+    labels = scales::label_number(scale = 1e-6, suffix = "M"),
+    breaks = scales::breaks_pretty(n = 5))+
+  labs(title = "Top 10 Largest Lakes in Polk County, Florida",
+    subtitle = "Based on surface area",
+    caption = "Data: Florida Department of Environmental Protection") +
+  theme_minimal()+
+  theme(axis.title = element_blank(),
+    plot.title = element_text(face = "bold", size = 14),
+    plot.subtitle = element_text(size = 10),
+    legend.position = "bottom")+
+  geom_sf_label(aes(label = NAME), size = 2.5, color = "black") +
+  coord_sf(crs = "+proj=aea +lat_1=24 +lat_2=31 +lat_0=23 +lon_0=-84")
+```
+
+## 3. West Roxbury Housing Prices - Model-Based Visualization
+
+### Data Preparation
+```{r}
+colnames(houses)
+head(houses)
+#no real dataset preparation needed
+```
+
+### Visualization
+```{r houses_plot}
+ggplot(houses, aes(x = `LIVING AREA`, y = `TOTAL VALUE`))+
+  geom_point(alpha = 0.3, color = "darkblue", size=1)+
+  geom_smooth(method = "lm", se = TRUE, color = "red")+
+  labs(title = "Effect of Living Area on Housing Price in West Roxbury",
+    subtitle = "Method used: Linear regression",
+    caption = "Data: West Roxbury Housing Dataset",
+    x = "Living Area in sqft",
+    y = "Total Value in 1,000s USD")+
+  theme_minimal()
+```
+
+# Discussion report
+
+The following section addresses the questions for the report. With a subheader for each visualisation.
+
+## Introduction
+This mini-project 2 explores three different real-world datasets through different types of visualizations: interactive, spatial, and model-based. The goal is to gain insights into diverse categories:videogames, geography, and real estate. Each visualization was chosen based on personal interest and its potential to reveal meaningful insights.
+
+***Side Note Regarding FIFA 18:*** *For better understanding, in the online mode of the FIFA Games (called Fifa Ultimate Team),  users build their own squads by linking players together based on chemistry (League, Club, Nationality).Pace, consisting of Sprint speed and acceleration, is one of the most valued attributes, as it significantly affects in-game performance and usability.*
+
+## What were the original charts you planned to create for this assignments? What steps were necessary for cleaning and preparing the data?
+**1.Interactive Visualization:** A scatter plot of FIFA 18 player stats, focusing on overall rating and sprint speed. The goal was to explore how  pacey the top players of FIFA 18 are. To give users insight on how well players might fit their online squad taht rey are building. The chart includes interactivity, allowing  to hover over points to view general information about each player, such as name, nationality, club (which is relevant for the chemistry), as well as the pace related stats acceleration, and stamina. Points are color coded by nationality.
+The FIFA 18 player statistics, the dataset contained a large number of players and variables. To focus the analysis, the top 30 players were selected based on their overall rating. Attributes related to pace, specifically sprint speed, acceleration, and stamina, were selected and set as important attributes. The data was formatted to allow proper interactivity, including tooltips displaying nationality and player specific information.
+
+**2. Spatial Visualization:**A map of the 10 largest lakes by area in Polk County, Florida. The map was designed to explore their geographic distribution and relative sizes. Each lake is color-filled according to its surface area, and labeled with its name to improve orientation and recognition. The goal was to understand how these major lakes are distributed across the county and which ones have the largest extent.
+For the spatial visualization, the original lake data used a geographic coordinate system, which measures in degrees and is not properly for easy to understand areas To fix this, it has been transformed into a projected system and calculated the lake areas in square meters using st_area(). The dataset then has been filtered for lakes in Polk County and selected the 10 largest by area for the final map.
+For the model-based visualization using the West Roxbury housing dataset, only minimal data preparation was necessary. Especially, making sure of right column names. The dataset included living area (in square feet) and total home value (in U.S. dollars), making it suitable for regression analysis. Column names containing spaces were accessed using backticks to ensure functionality. The data was then used to explore the relationship between home size and property value through a scatter plot with a fitted regression line.
+
+**3. Model-Based Visualization**:  A regression plot showing the relationship between living area and housing prices in West Roxbury, using a linear trend line. The goal was to understand how home size influences value and whether a clear linear association can be observed.
+
+## What story could you tell with your plots? What difficulties did you encounter while creating the visualizations? What additional approaches do you think can be use to explore the data you selected?
+**1. Spatial Visualization:**
+The map reveals that the largest lakes in Polk County are scattered across different areas, with a noticeable concentration in the eastern part of the county. The largest among them is Lake Weohyakapka. Including the lake names added helpful geographic context, but also posed visual challenges—some labels overlapped or obscured the lakes beneath them. This required several iterations with label size, positioning, and map theme to find a readable balance. Further another challenge was in the data preparation,  the original coordinate system used degrees as units, which are not suitable for displaying surface areas (it would be degrees²). To ensure accurate area values in square meters, I had to transform the data to a coordinate reference system, which was complicated to find out.
+While the current map provides a clear overview, a future improvement could be to add a location map of Florida to better situate Polk County within the state and put landmarks or cities within to further increase orientation.
+
+**2.Interactive Visualization:**
+This plot helps identify whether top-rated players in FIFA 18 also possess strong sprint speed, a stat that is crucial for in-game performance and often a deciding factor when users select players for a team. The interactive tooltips allow further exploration of individual attributes like pace related acceleration and stamina or general team building related information such as nation, name and club. The goal was to see players who are both highly rated overall and exceptionally fast, so they can be used in the users team. The visualization reveals that some of the highest-rated players, such as Mats Hummels or Toni Kroos, may not be ideal for gameplay due to their lack of pace. Conversely, players like Aubameyang, who has a lower overall rating (88) but exceptional sprint speed (96), are often preferred over slower but higher-rated players like Luis Suárez (92 overall, 77 sprint speed), because they make a greater impact in fast-paced gameplay.
+This view offers an engaging way to evaluate which players are actually viable in-game, beyond their overall rating. A valuable future extension could involve comparing attributes like sprint speed with passing for midfielders, defending for defenders, and shooting for attackers depending on a player's position. This would help identify well-rounded players and position-specific viable options, and offer more useful insights into gameplay decisions. 
+A key challenge was finding the balance between clarity and detail, too many players could have overwhelmed the viewer, so finding the right amount of player to display with only the relevant information required some careful testing.
+
+**3. Model-Based Visualization:**
+This scatter plot with a regression line shows a positive relationship between living area and housing price, confirming the expected trend, larger homes tend to cost more. However, the spread of the data suggests other influencing factors beyond size, such as location, condition, or year built.
+One limitation was the lack of clearly labeled units in the dataset. I assumed square feet for living area and USD for price, which seems reasonable based on the value ranges. Further refinement could include multiple regression analysis including more factors, or doing a segmentation of the market by year built.
+
+## How did you apply the principles of data visualizations and design for this assignment?
+Throughout the project, I focused on clarity, readability, and visual storytelling. For the spatial visualization of lakes, I used an appropriate color gradient to represent surface area, added lake labels for geographic context and information, and chose a projection that preserved relative area sizes. I adjusted text placement and border color to maintain contrast and neatness.
+In the interactive FIFA scatter plot, I applied mapping of attributes, sprint speed and overall rating were plotted on axes to reveal meaningful patterns and relevant insight for users. Color encoding by nationality added another layer of insight, while tooltips provided further context without making the chart overloaded.
+For the regression plot of housing prices, I emphasized the relationship between variables using a clean scatterplot with a fitted trend line and minimal theme. Axis labels and units were clearly defined to ensure interpretability.
+Across all visualizations, I applied consistency in color usage, labeling, and layout, and ensured each plot communicated its main message effectively without unnecessary complexity.
+
+### Conclusion
+This project 2 showed how different types of visualizations, spatial, interactive, and model-based, can each reveal unique insights from diverse datasets. By applying key design principles and incorporating personal interest, the visualizations became engaging and meaningful. The process also highlighted the importance of thoughtful variable selection, clarity, and context in effective data storytelling.
+
+
+
